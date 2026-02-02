@@ -64,12 +64,14 @@ jobs:
           echo "Testing against typedb version: ${{ inputs.typedb_version }}"
           # Update replace directives to point to checked-out typedb repo
           # From examples/*/, typedb is at ../../../typedb (up 3 levels to workspace root, then into typedb)
-          find examples -name go.mod -type f ! -path "examples/seed/*" -exec sed -i 's|replace github.com/TheBlackHowling/typedb => ../..|replace github.com/TheBlackHowling/typedb => ../../../typedb|g' {} \;
-          find examples -name go.mod -type f ! -path "examples/seed/*" -exec sed -i 's|replace github.com/TheBlackHowling/typedb => ../..\/|replace github.com/TheBlackHowling/typedb => ../../../typedb|g' {} \;
+          find examples -name go.mod -type f ! -path "examples/seed/*" -exec sed -i 's|replace github.com/TheBlackHowling/typedb => \.\./\.\.|replace github.com/TheBlackHowling/typedb => ../../../typedb|g' {} \;
+          find examples -name go.mod -type f ! -path "examples/seed/*" -exec sed -i 's|replace github.com/TheBlackHowling/typedb => \.\./\.\./|replace github.com/TheBlackHowling/typedb => ../../../typedb|g' {} \;
           # From examples/seed/, typedb is at ../../typedb (up 2 levels to workspace root, then into typedb)
-          find examples/seed -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => ../..|replace github.com/TheBlackHowling/typedb => ../../typedb|g' {} \;
+          find examples/seed -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => \.\./\.\.|replace github.com/TheBlackHowling/typedb => ../../typedb|g' {} \;
+          find examples/seed -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => \.\./\.\./|replace github.com/TheBlackHowling/typedb => ../../typedb|g' {} \;
           # From integration_tests/*/, typedb is at ../../../typedb (up 3 levels to workspace root, then into typedb)
-          find integration_tests -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => ../..|replace github.com/TheBlackHowling/typedb => ../../../typedb|g' {} \;
+          find integration_tests -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => \.\./\.\.|replace github.com/TheBlackHowling/typedb => ../../../typedb|g' {} \;
+          find integration_tests -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => \.\./\.\./|replace github.com/TheBlackHowling/typedb => ../../../typedb|g' {} \;
       
       - name: Download dependencies for examples
         if: inputs.test_type == 'examples' || inputs.test_type == 'both'
