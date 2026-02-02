@@ -1,0 +1,194 @@
+name: Test Examples and Integration Tests with Typedb Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      typedb_version:
+        description: 'Typedb version/tag/branch to test against (e.g., v1.0.0, main, or commit SHA)'
+        required: true
+        type: string
+        default: 'main'
+      test_type:
+        description: 'What to test'
+        required: true
+        type: choice
+        options:
+          - examples
+          - integration_tests
+          - both
+        default: 'both'
+      database:
+        description: 'Database to test (leave empty for all)'
+        required: false
+        type: choice
+        options:
+          - postgresql
+          - mysql
+          - sqlite
+          - mssql
+          - oracle
+          - all
+        default: 'all'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout typedb-examples
+        uses: actions/checkout@v4
+        with:
+          path: typedb-examples
+      
+      - name: Checkout typedb
+        uses: actions/checkout@v4
+        with:
+          repository: TheBlackhowling/typedb
+          ref: ${{ inputs.typedb_version }}
+          path: typedb
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      
+      - name: Update go.mod replace directives
+        working-directory: typedb-examples
+        run: |
+          echo "Testing against typedb version: ${{ inputs.typedb_version }}"
+          # Update replace directives to point to checked-out typedb repo
+          find examples -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => ../..|replace github.com/TheBlackHowling/typedb => ../../typedb|g' {} \;
+          find examples -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => ../..\/|replace github.com/TheBlackHowling/typedb => ../../typedb|g' {} \;
+          # Update seed module replace directive
+          find examples/seed -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => ../..|replace github.com/TheBlackHowling/typedb => ../../typedb|g' {} \;
+          # Update integration test replace directives
+          find integration_tests -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => ../..|replace github.com/TheBlackHowling/typedb => ../../typedb|g' {} \;
+      
+      - name: Display typedb version info
+        run: |
+          cd typedb
+          echo "Typedb commit: $(git rev-parse HEAD)"
+          echo "Typedb branch/tag: $(git describe --tags --exact-match 2>/dev/null || git branch --show-current || echo 'detached HEAD')"
+      
+      - name: Test Examples - PostgreSQL
+        if: |
+          (inputs.test_type == 'examples' || inputs.test_type == 'both') &&
+          (inputs.database == 'postgresql' || inputs.database == 'all')
+        runs-on: ubuntu-latest
+        services:
+          postgres:
+            image: postgres:15
+            env:
+              POSTGRES_USER: user
+              POSTGRES_PASSWORD: password
+              POSTGRES_DB: typedb_examples
+            options: >-
+              --health-cmd pg_isready
+              --health-interval 10s
+              --health-timeout 5s
+              --health-retries 5
+            ports:
+              - 5432:5432
+        steps:
+          - name: Checkout typedb-examples
+            uses: actions/checkout@v4
+            with:
+              path: typedb-examples
+          - name: Checkout typedb
+            uses: actions/checkout@v4
+            with:
+              repository: TheBlackhowling/typedb
+              ref: ${{ inputs.typedb_version }}
+              path: typedb
+          - name: Set up Go
+            uses: actions/setup-go@v5
+            with:
+              go-version: '1.22'
+          - name: Update go.mod replace directives
+            working-directory: typedb-examples
+            run: |
+              find examples -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => ../..|replace github.com/TheBlackHowling/typedb => ../../typedb|g' {} \;
+              find examples -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => ../..\/|replace github.com/TheBlackHowling/typedb => ../../typedb|g' {} \;
+              find examples/seed -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => ../..|replace github.com/TheBlackHowling/typedb => ../../typedb|g' {} \;
+          - name: Install golang-migrate
+            run: |
+              curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz | tar xvz
+              sudo mv migrate /usr/local/bin/migrate
+          - name: Run migrations
+            working-directory: typedb-examples
+            env:
+              POSTGRES_URL: "postgres://user:password@localhost:5432/typedb_examples?sslmode=disable"
+            run: |
+              cd examples/postgresql
+              migrate -path migrations -database "$POSTGRES_URL" up
+          - name: Run PostgreSQL examples
+            working-directory: typedb-examples
+            env:
+              POSTGRES_DSN: "postgres://user:password@localhost:5432/typedb_examples?sslmode=disable"
+            run: |
+              cd examples/postgresql
+              go mod tidy
+              go run example.go examples_query.go examples_load.go examples_insert.go examples_update.go examples_transaction.go examples_raw.go models.go
+      
+      - name: Test Integration Tests - PostgreSQL
+        if: |
+          (inputs.test_type == 'integration_tests' || inputs.test_type == 'both') &&
+          (inputs.database == 'postgresql' || inputs.database == 'all')
+        runs-on: ubuntu-latest
+        services:
+          postgres:
+            image: postgres:15
+            env:
+              POSTGRES_USER: user
+              POSTGRES_PASSWORD: password
+              POSTGRES_DB: typedb_examples
+            options: >-
+              --health-cmd pg_isready
+              --health-interval 10s
+              --health-timeout 5s
+              --health-retries 5
+            ports:
+              - 5432:5432
+        steps:
+          - name: Checkout typedb-examples
+            uses: actions/checkout@v4
+            with:
+              path: typedb-examples
+          - name: Checkout typedb
+            uses: actions/checkout@v4
+            with:
+              repository: TheBlackhowling/typedb
+              ref: ${{ inputs.typedb_version }}
+              path: typedb
+          - name: Set up Go
+            uses: actions/setup-go@v5
+            with:
+              go-version: '1.22'
+          - name: Update go.mod replace directives
+            working-directory: typedb-examples
+            run: |
+              find integration_tests -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => ../..|replace github.com/TheBlackHowling/typedb => ../../typedb|g' {} \;
+          - name: Setup integration test dependencies
+            working-directory: typedb-examples
+            run: |
+              cd integration_tests/postgresql
+              go mod tidy
+              go mod download
+          - name: Install golang-migrate
+            run: |
+              curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz | tar xvz
+              sudo mv migrate /usr/local/bin/migrate
+          - name: Run migrations
+            working-directory: typedb-examples
+            env:
+              POSTGRES_URL: "postgres://user:password@localhost:5432/typedb_examples?sslmode=disable"
+            run: |
+              cd integration_tests/postgresql
+              migrate -path migrations -database "$POSTGRES_URL" up
+          - name: Run PostgreSQL integration tests
+            working-directory: typedb-examples
+            env:
+              POSTGRES_DSN: "postgres://user:password@localhost:5432/typedb_examples?sslmode=disable"
+            run: |
+              cd integration_tests/postgresql
+              go test -v
