@@ -49,18 +49,12 @@ jobs:
           sudo apt-get install -y libsqlite3-dev gcc
       
       - name: Install SQLite driver and migration dependencies
-        working-directory: typedb-examples
+        working-directory: typedb-examples/examples/sqlite
         env:
           CGO_ENABLED: 1
         run: |
           # Set CGO_ENABLED globally for this step
           export CGO_ENABLED=1
-          # Install the driver at the root level first to ensure it's in module cache with CGO
-          go get github.com/mattn/go-sqlite3@latest
-          # Build the driver package to ensure it's compiled with CGO
-          go build -buildmode=archive github.com/mattn/go-sqlite3 || true
-          
-          cd examples/sqlite
           # Download and build dependencies with CGO enabled
           go mod download || true
           go get github.com/mattn/go-sqlite3
