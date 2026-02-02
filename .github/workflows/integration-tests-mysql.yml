@@ -26,21 +26,32 @@ jobs:
           - 3306:3306
     
     steps:
-      - name: Checkout code
+      - name: Checkout typedb-examples
         uses: actions/checkout@v4
+        with:
+          path: typedb-examples
+      
+      - name: Checkout typedb
+        uses: actions/checkout@v4
+        with:
+          repository: TheBlackhowling/typedb
+          path: typedb
       
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.22'
-          cache-dependency-path: go.sum
+          cache-dependency-path: typedb-examples/integration_tests/mysql/go.sum
       
-      - name: Download dependencies
-        run: go mod download
+      - name: Update go.mod replace directives
+        working-directory: typedb-examples
+        run: |
+          # Update replace directives to point to checked-out typedb repo
+          find integration_tests -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => ../..|replace github.com/TheBlackHowling/typedb => ../../typedb|g' {} \;
       
       - name: Setup integration test dependencies
+        working-directory: typedb-examples/integration_tests/mysql
         run: |
-          cd integration_tests/mysql
           go mod tidy
           go mod download
       
@@ -50,15 +61,15 @@ jobs:
           sudo mv migrate /usr/local/bin/migrate
       
       - name: Run migrations
+        working-directory: typedb-examples/integration_tests/mysql
         env:
           MYSQL_URL: "mysql://user:password@tcp(localhost:3306)/typedb_examples?parseTime=true"
         run: |
-          cd integration_tests/mysql
           migrate -path migrations -database "$MYSQL_URL" up
       
       - name: Run MySQL integration tests
+        working-directory: typedb-examples/integration_tests/mysql
         env:
           MYSQL_DSN: "user:password@tcp(localhost:3306)/typedb_examples?parseTime=true"
         run: |
-          cd integration_tests/mysql
           go test -v

@@ -26,21 +26,32 @@ jobs:
           - 1433:1433
     
     steps:
-      - name: Checkout code
+      - name: Checkout typedb-examples
         uses: actions/checkout@v4
+        with:
+          path: typedb-examples
+      
+      - name: Checkout typedb
+        uses: actions/checkout@v4
+        with:
+          repository: TheBlackhowling/typedb
+          path: typedb
       
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.22'
-          cache-dependency-path: go.sum
+          cache-dependency-path: typedb-examples/integration_tests/mssql/go.sum
       
-      - name: Download dependencies
-        run: go mod download
+      - name: Update go.mod replace directives
+        working-directory: typedb-examples
+        run: |
+          # Update replace directives to point to checked-out typedb repo
+          find integration_tests -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => ../..|replace github.com/TheBlackHowling/typedb => ../../typedb|g' {} \;
       
       - name: Setup integration test dependencies
+        working-directory: typedb-examples/integration_tests/mssql
         run: |
-          cd integration_tests/mssql
           go mod tidy
           go mod download
       
@@ -73,15 +84,15 @@ jobs:
           /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'YourPassword123!' -C -Q "IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'typedb_examples') CREATE DATABASE typedb_examples" || true
       
       - name: Run migrations
+        working-directory: typedb-examples/integration_tests/mssql
         env:
           MSSQL_URL: "sqlserver://sa:YourPassword123!@localhost:1433?database=typedb_examples"
         run: |
-          cd integration_tests/mssql
           migrate -path migrations -database "$MSSQL_URL" up
       
       - name: Run SQL Server integration tests
+        working-directory: typedb-examples/integration_tests/mssql
         env:
           MSSQL_DSN: "server=localhost;user id=sa;password=YourPassword123!;database=typedb_examples"
         run: |
-          cd integration_tests/mssql
           go test -v

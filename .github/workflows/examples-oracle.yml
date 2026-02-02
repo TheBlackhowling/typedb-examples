@@ -11,19 +11,38 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout code
+      - name: Checkout typedb-examples
         uses: actions/checkout@v4
+        with:
+          path: typedb-examples
+      
+      - name: Checkout typedb
+        uses: actions/checkout@v4
+        with:
+          repository: TheBlackhowling/typedb
+          path: typedb
       
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.22'
-          cache-dependency-path: go.sum
+          cache-dependency-path: typedb-examples/examples/oracle/go.sum
+      
+      - name: Update go.mod replace directives
+        working-directory: typedb-examples
+        run: |
+          # Update replace directives to point to checked-out typedb repo
+          find examples -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => ../..|replace github.com/TheBlackHowling/typedb => ../../typedb|g' {} \;
+          find examples -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => ../..\/|replace github.com/TheBlackHowling/typedb => ../../typedb|g' {} \;
+          # Update seed module replace directive
+          find examples/seed -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => ../..|replace github.com/TheBlackHowling/typedb => ../../typedb|g' {} \;
       
       - name: Download dependencies
+        working-directory: typedb-examples/examples/oracle
         run: go mod download
       
       - name: Install Oracle driver
+        working-directory: typedb-examples/examples/oracle
         run: go get github.com/sijms/go-ora/v2
       
       - name: Try to pull Oracle image without authentication
@@ -54,6 +73,7 @@ jobs:
       
       - name: Start Oracle database
         if: steps.try_oracle_pull.outputs.oracle_available == 'true' || steps.check_oracle.outputs.oracle_available == 'true'
+        working-directory: typedb-examples
         run: |
           cd examples
           docker compose up -d oracle
@@ -62,21 +82,23 @@ jobs:
       
       - name: Run Oracle migrations
         if: steps.try_oracle_pull.outputs.oracle_available == 'true' || steps.check_oracle.outputs.oracle_available == 'true'
+        working-directory: typedb-examples
         run: |
           cd examples
           docker compose run --rm migrate-oracle
       
       - name: Run Oracle examples
         if: steps.try_oracle_pull.outputs.oracle_available == 'true' || steps.check_oracle.outputs.oracle_available == 'true'
+        working-directory: typedb-examples/examples/oracle
         env:
           ORACLE_DSN: "oracle://typedb:password@localhost:1521/FREEPDB1"
         run: |
-          cd examples/oracle
           go mod tidy
           go run example.go examples_query.go examples_load.go examples_insert.go examples_update.go examples_transaction.go examples_raw.go models.go
       
       - name: Cleanup Oracle container
         if: always() && (steps.try_oracle_pull.outputs.oracle_available == 'true' || steps.check_oracle.outputs.oracle_available == 'true')
+        working-directory: typedb-examples
         run: |
           cd examples
           docker compose down -v oracle || true

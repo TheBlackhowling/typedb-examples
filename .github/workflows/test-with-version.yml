@@ -70,6 +70,34 @@ jobs:
           # Update integration test replace directives
           find integration_tests -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => ../..|replace github.com/TheBlackHowling/typedb => ../../typedb|g' {} \;
       
+      - name: Download dependencies for examples
+        if: inputs.test_type == 'examples' || inputs.test_type == 'both'
+        working-directory: typedb-examples
+        run: |
+          # Download dependencies for all example modules
+          for dir in examples/*/; do
+            if [ -f "$dir/go.mod" ]; then
+              echo "Downloading dependencies for $dir"
+              (cd "$dir" && go mod download) || true
+            fi
+          done
+          # Download dependencies for seed module
+          if [ -f "examples/seed/go.mod" ]; then
+            (cd examples/seed && go mod download) || true
+          fi
+      
+      - name: Download dependencies for integration tests
+        if: inputs.test_type == 'integration_tests' || inputs.test_type == 'both'
+        working-directory: typedb-examples
+        run: |
+          # Download dependencies for all integration test modules
+          for dir in integration_tests/*/; do
+            if [ -f "$dir/go.mod" ]; then
+              echo "Downloading dependencies for $dir"
+              (cd "$dir" && go mod download) || true
+            fi
+          done
+      
       - name: Summary
         run: |
           echo "## Test Configuration" >> $GITHUB_STEP_SUMMARY

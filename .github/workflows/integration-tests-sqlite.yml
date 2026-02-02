@@ -10,48 +10,60 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout code
+      - name: Checkout typedb-examples
         uses: actions/checkout@v4
+        with:
+          path: typedb-examples
+      
+      - name: Checkout typedb
+        uses: actions/checkout@v4
+        with:
+          repository: TheBlackhowling/typedb
+          path: typedb
       
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.22'
-          cache-dependency-path: go.sum
+          cache-dependency-path: typedb-examples/integration_tests/sqlite/go.sum
       
-      - name: Download dependencies
-        run: go mod download
-      
-      - name: Install SQLite driver and migration dependencies
-        env:
-          CGO_ENABLED: 1
+      - name: Update go.mod replace directives
+        working-directory: typedb-examples
         run: |
-          cd integration_tests/sqlite
-          go get github.com/mattn/go-sqlite3
-          go get github.com/golang-migrate/migrate/v4
-          go get github.com/golang-migrate/migrate/v4/database/sqlite3
-          go get github.com/golang-migrate/migrate/v4/source/file
+          # Update replace directives to point to checked-out typedb repo
+          find integration_tests -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => ../..|replace github.com/TheBlackHowling/typedb => ../../typedb|g' {} \;
       
       - name: Install SQLite development libraries
         run: |
           sudo apt-get update
           sudo apt-get install -y libsqlite3-dev gcc
       
-      - name: Setup integration test dependencies
+      - name: Install SQLite driver and migration dependencies
+        working-directory: typedb-examples/integration_tests/sqlite
+        env:
+          CGO_ENABLED: 1
         run: |
-          cd integration_tests/sqlite
+          go get github.com/mattn/go-sqlite3
+          go get github.com/golang-migrate/migrate/v4
+          go get github.com/golang-migrate/migrate/v4/database/sqlite3
+          go get github.com/golang-migrate/migrate/v4/source/file
+      
+      - name: Setup integration test dependencies
+        working-directory: typedb-examples/integration_tests/sqlite
+        run: |
           go mod tidy
           go mod download
       
       - name: Run SQLite integration tests
+        working-directory: typedb-examples/integration_tests/sqlite
         env:
           CGO_ENABLED: 1
           SQLITE_DSN: "typedb_examples_test.db"
         run: |
-          cd integration_tests/sqlite
           go test -v
       
       - name: Cleanup test database
         if: always()
+        working-directory: typedb-examples/integration_tests/sqlite
         run: |
-          rm -f integration_tests/sqlite/*.db
+          rm -f *.db

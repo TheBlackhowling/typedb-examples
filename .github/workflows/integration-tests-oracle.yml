@@ -10,21 +10,32 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout code
+      - name: Checkout typedb-examples
         uses: actions/checkout@v4
+        with:
+          path: typedb-examples
+      
+      - name: Checkout typedb
+        uses: actions/checkout@v4
+        with:
+          repository: TheBlackhowling/typedb
+          path: typedb
       
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.22'
-          cache-dependency-path: go.sum
+          cache-dependency-path: typedb-examples/integration_tests/oracle/go.sum
       
-      - name: Download dependencies
-        run: go mod download
+      - name: Update go.mod replace directives
+        working-directory: typedb-examples
+        run: |
+          # Update replace directives to point to checked-out typedb repo
+          find integration_tests -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => ../..|replace github.com/TheBlackHowling/typedb => ../../typedb|g' {} \;
       
       - name: Setup integration test dependencies
+        working-directory: typedb-examples/integration_tests/oracle
         run: |
-          cd integration_tests/oracle
           go mod tidy
           go mod download
       
@@ -56,30 +67,30 @@ jobs:
       
       - name: Start Oracle database
         if: steps.try_oracle_pull.outputs.oracle_available == 'true' || steps.check_oracle.outputs.oracle_available == 'true'
+        working-directory: typedb-examples/integration_tests
         run: |
-          cd integration_tests
           docker compose up -d oracle
           echo "Waiting for Oracle to be ready..."
           timeout 300 bash -c 'until docker compose exec -T oracle sqlplus -S sys/password@localhost:1521/FREEPDB1 as sysdba <<< "SELECT 1 FROM DUAL;" &>/dev/null; do sleep 5; done' || exit 1
       
       - name: Run Oracle migrations
         if: steps.try_oracle_pull.outputs.oracle_available == 'true' || steps.check_oracle.outputs.oracle_available == 'true'
+        working-directory: typedb-examples/integration_tests
         run: |
-          cd integration_tests
           docker compose run --rm migrate-oracle
       
       - name: Run Oracle integration tests
         if: steps.try_oracle_pull.outputs.oracle_available == 'true' || steps.check_oracle.outputs.oracle_available == 'true'
+        working-directory: typedb-examples/integration_tests/oracle
         env:
           ORACLE_DSN: "oracle://typedb:password@localhost:1521/FREEPDB1"
         run: |
-          cd integration_tests/oracle
           go test -v
       
       - name: Cleanup Oracle container
         if: always() && (steps.try_oracle_pull.outputs.oracle_available == 'true' || steps.check_oracle.outputs.oracle_available == 'true')
+        working-directory: typedb-examples/integration_tests
         run: |
-          cd integration_tests
           docker compose down -v oracle || true
       
       - name: Skip Oracle tests (no credentials)
