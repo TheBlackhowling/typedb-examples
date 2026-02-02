@@ -1,0 +1,15 @@
+go 1.18
+
+use (
+	./examples/postgresql
+	./examples/mysql
+	./examples/sqlite
+	./examples/mssql
+	./examples/oracle
+	./examples/seed
+	./integration_tests/postgresql
+	./integration_tests/mysql
+	./integration_tests/sqlite
+	./integration_tests/mssql
+	./integration_tests/oracle
+)

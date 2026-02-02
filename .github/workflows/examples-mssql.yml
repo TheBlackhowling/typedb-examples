@@ -49,15 +49,28 @@ jobs:
           go-version: '1.22'
           cache-dependency-path: typedb-examples/examples/mssql/go.sum
       
-      - name: Update go.mod replace directives
+      - name: Create go.work workspace file
         working-directory: typedb-examples
         run: |
-          # Update replace directives to point to checked-out typedb repo
-          # From examples/*/, typedb is at ../../../typedb (up 3 levels to workspace root, then into typedb)
-          # Match => ../.. or => ../../ followed by whitespace or end of line
-          find examples -name go.mod -type f ! -path "examples/seed/*" -exec sed -i 's|=> \.\./\.\.\(/\|\$\)|=> ../../../typedb|g' {} \;
-          # From examples/seed/, typedb is at ../../typedb (up 2 levels to workspace root, then into typedb)
-          find examples/seed -name go.mod -exec sed -i 's|=> \.\./\.\.\(/\|\$\)|=> ../../typedb|g' {} \;
+          # Create go.work file that includes typedb repo and all example/integration test modules
+          cat > go.work << 'EOF'
+          go 1.18
+          
+          use (
+          	../typedb
+          	./examples/postgresql
+          	./examples/mysql
+          	./examples/sqlite
+          	./examples/mssql
+          	./examples/oracle
+          	./examples/seed
+          	./integration_tests/postgresql
+          	./integration_tests/mysql
+          	./integration_tests/sqlite
+          	./integration_tests/mssql
+          	./integration_tests/oracle
+          )
+          EOF
       
       - name: Download dependencies
         working-directory: typedb-examples/examples/mssql
