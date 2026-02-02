@@ -49,7 +49,7 @@ jobs:
           # Update replace directives to point to checked-out typedb repo
           # From integration_tests/*/, typedb is at ../../../typedb (up 3 levels to workspace root, then into typedb)
           # Match => ../.. or => ../../ followed by whitespace or end of line
-          find integration_tests -name go.mod -exec sed -i 's|=> \.\./\.\.\(/\| \|$$\)|=> ../../../typedb|g' {} \;
+          find integration_tests -name go.mod -exec sed -i 's|=> \.\./\.\.\(/\|\$\)|=> ../../../typedb|g' {} \;
       
       - name: Setup integration test dependencies
         working-directory: typedb-examples/integration_tests/mysql
