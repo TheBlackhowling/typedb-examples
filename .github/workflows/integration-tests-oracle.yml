@@ -32,8 +32,8 @@ jobs:
         run: |
           # Update replace directives to point to checked-out typedb repo
           # From integration_tests/*/, typedb is at ../../../typedb (up 3 levels to workspace root, then into typedb)
-          find integration_tests -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => \.\./\.\.|replace github.com/TheBlackHowling/typedb => ../../../typedb|g' {} \;
-          find integration_tests -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => \.\./\.\./|replace github.com/TheBlackHowling/typedb => ../../../typedb|g' {} \;
+          # Only replace if not already pointing to typedb directory
+          find integration_tests -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => \.\./\.\.\(/\|$\)|replace github.com/TheBlackHowling/typedb => ../../../typedb|g' {} \;
       
       - name: Setup integration test dependencies
         working-directory: typedb-examples/integration_tests/oracle
