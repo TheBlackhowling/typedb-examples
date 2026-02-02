@@ -53,10 +53,10 @@ jobs:
         run: |
           # Update replace directives to point to checked-out typedb repo
           # From examples/*/, typedb is at ../../../typedb (up 3 levels to workspace root, then into typedb)
-          # Only replace if not already pointing to typedb directory
-          find examples -name go.mod -type f ! -path "examples/seed/*" -exec sed -i 's|replace github.com/TheBlackHowling/typedb => \.\./\.\.\(/\|$\)|replace github.com/TheBlackHowling/typedb => ../../../typedb|g' {} \;
+          # Match => ../.. or => ../../ followed by whitespace or end of line
+          find examples -name go.mod -type f ! -path "examples/seed/*" -exec sed -i 's|=> \.\./\.\.\(/\| \|$$\)|=> ../../../typedb|g' {} \;
           # From examples/seed/, typedb is at ../../typedb (up 2 levels to workspace root, then into typedb)
-          find examples/seed -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => \.\./\.\.\(/\|$\)|replace github.com/TheBlackHowling/typedb => ../../typedb|g' {} \;
+          find examples/seed -name go.mod -exec sed -i 's|=> \.\./\.\.\(/\| \|$$\)|=> ../../typedb|g' {} \;
       
       - name: Download dependencies
         working-directory: typedb-examples/examples/postgresql
