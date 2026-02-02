@@ -22,7 +22,7 @@ jobs:
           repository: Blackhowling-Dev/TechnicalDocumentation
           path: technical-docs-action
           ref: main
-          token: ${{ secrets.REPO_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.CHANGELOG_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Generate PR Summary and Description
         id: generate_content
