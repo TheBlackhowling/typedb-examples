@@ -35,7 +35,7 @@ jobs:
         run: |
           # Create go.work file that includes typedb repo and all example/integration test modules
           cat > go.work << 'EOF'
-          go 1.18
+          go 1.24
           
           use (
           	../typedb
