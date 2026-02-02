@@ -64,7 +64,7 @@ jobs:
           echo "Testing against typedb version: ${{ inputs.typedb_version }}"
           # Create go.work file that includes typedb repo and all example/integration test modules
           cat > go.work << 'EOF'
-          go 1.24
+          go 1.24.0
           
           use (
           	../typedb
