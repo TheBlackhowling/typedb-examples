@@ -35,12 +35,13 @@ jobs:
         run: |
           # Remove any existing go.work file to ensure clean state
           rm -f go.work
-          # Create go.work file that includes typedb repo and all example/integration test modules
+          # Create go.work file that includes all example/integration test modules
+          # Use replace directive instead of including ../typedb in use list to avoid
+          # conflicts with typedb's own examples (which have same module paths)
           cat > go.work << 'EOF'
           go 1.24.0
           
           use (
-          	../typedb
           	./examples/postgresql
           	./examples/mysql
           	./examples/sqlite
@@ -53,6 +54,8 @@ jobs:
           	./integration_tests/mssql
           	./integration_tests/oracle
           )
+          
+          replace github.com/TheBlackHowling/typedb => ../typedb
           EOF
       
       - name: Install SQLite development libraries
