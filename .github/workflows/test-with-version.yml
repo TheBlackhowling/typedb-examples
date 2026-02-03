@@ -62,6 +62,8 @@ jobs:
         working-directory: typedb-examples
         run: |
           echo "Testing against typedb version: ${{ inputs.typedb_version }}"
+          # Remove any existing go.work file to ensure clean state
+          rm -f go.work
           # Create go.work file that includes typedb repo and all example/integration test modules
           cat > go.work << 'EOF'
           go 1.24.0

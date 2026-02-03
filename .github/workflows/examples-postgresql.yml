@@ -51,6 +51,8 @@ jobs:
       - name: Create go.work workspace file
         working-directory: typedb-examples
         run: |
+          # Remove any existing go.work file to ensure clean state
+          rm -f go.work
           # Create go.work file that includes typedb repo and all example/integration test modules
           cat > go.work << 'EOF'
           go 1.24.0
@@ -70,6 +72,10 @@ jobs:
           	./integration_tests/oracle
           )
           EOF
+          # Verify the file was created correctly
+          cat go.work
+          echo "--- Verifying go.work version ---"
+          grep "^go " go.work || echo "ERROR: go.work version line not found"
       
       - name: Download dependencies
         working-directory: typedb-examples/examples/postgresql
