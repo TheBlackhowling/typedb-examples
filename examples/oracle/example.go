@@ -33,6 +33,12 @@ func main() {
 	}
 	fmt.Println("✓ Connected to Oracle")
 
+	// Run migrations
+	fmt.Println("\n--- Running Migrations ---")
+	if err := runMigrations(ctx, db); err != nil {
+		log.Fatalf("Failed to run migrations: %v", err)
+	}
+
 	// Clear and seed database with random data
 	fmt.Println("\n--- Clearing and Seeding Database ---")
 	if err := seed.ClearDatabase(ctx, db); err != nil {
