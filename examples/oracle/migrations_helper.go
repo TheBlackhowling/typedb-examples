@@ -57,6 +57,21 @@ func runMigrations(ctx context.Context, db *typedb.DB) error {
 
 	fmt.Printf("Running %d migrations from %s...\n", len(migrationFiles), migrationsPath)
 
+	// Drop existing tables if they exist (to ensure clean state)
+	// This handles the case where tables were created by integration test migrations
+	dropTables := []string{"user_posts", "posts", "profiles", "users"}
+	for _, tableName := range dropTables {
+		_, err := db.Exec(ctx, fmt.Sprintf("DROP TABLE %s CASCADE CONSTRAINTS", tableName))
+		if err != nil {
+			// Ignore "table does not exist" errors
+			errStr := strings.ToLower(err.Error())
+			if !strings.Contains(errStr, "does not exist") && !strings.Contains(errStr, "ora-00942") {
+				// Log but don't fail - table might not exist
+				fmt.Printf("  Warning: Could not drop table %s: %v\n", tableName, err)
+			}
+		}
+	}
+
 	// Execute each migration file
 	for _, migrationFile := range migrationFiles {
 		fileName := filepath.Base(migrationFile)
