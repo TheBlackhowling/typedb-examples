@@ -12,6 +12,19 @@ Detailed change logs for each version are stored in the [`versions/`](versions/)
 ## [Unreleased]
 
 
+## [1.0.4] - 2026-02-03
+
+**Commit:** [`674d84a`](https://github.com/TheBlackhowling/typedb-examples/commit/674d84a522ba285e4c3c4f4498adef13896f65f1)
+**Pull Request:** [#1](https://github.com/TheBlackhowling/typedb-examples/pull/1)
+
+**Summary:** Move examples and integration tests from typedb repository to dedicated examples repository
+
+**Key Changes:**
+- ... and 6 more files
+
+**Detailed Changes:** See [versions/1.0.4.md](versions/1.0.4.md)
+
+
 ## [1.0.3] - 2025-12-30
 
 **Commit:** [`e760a2f`](https://github.com/Blackhowling-Dev/NewRepoTemplate/commit/e760a2fa42aaa5dc1de5d4430180e82eaaa9ad8a)
