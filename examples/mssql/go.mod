@@ -1,9 +1,9 @@
 module github.com/TheBlackHowling/typedb/examples/mssql
 
-go 1.18
+go 1.23
 
 require (
-	github.com/TheBlackHowling/typedb v0.0.0
+	github.com/TheBlackHowling/typedb v1.0.11
 	github.com/TheBlackHowling/typedb/examples/seed v0.0.0
 	github.com/microsoft/go-mssqldb v1.6.0
 )
@@ -15,7 +15,5 @@ require (
 	golang.org/x/crypto v0.12.0 // indirect
 	golang.org/x/text v0.12.0 // indirect
 )
-
-replace github.com/TheBlackHowling/typedb => ../..
 
 replace github.com/TheBlackHowling/typedb/examples/seed => ../seed

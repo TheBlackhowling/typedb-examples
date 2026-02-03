@@ -1,10 +1,18 @@
-module github.com/TheBlackHowling/typedb/examples/postgresql
+module github.com/TheBlackHowling/typedb/integration_tests/postgresql
 
 go 1.23
 
-replace github.com/TheBlackHowling/typedb => ../..
-
 require (
-	github.com/TheBlackHowling/typedb v0.0.0-00010101000000-000000000000
+	github.com/TheBlackHowling/typedb v1.0.11
+	github.com/TheBlackHowling/typedb/integration_tests/testhelpers v0.0.0
+	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/lib/pq v1.10.9
 )
+
+require (
+	github.com/hashicorp/errwrap v1.1.0 // indirect
+	github.com/hashicorp/go-multierror v1.1.1 // indirect
+	go.uber.org/atomic v1.7.0 // indirect
+)
+
+replace github.com/TheBlackHowling/typedb/integration_tests/testhelpers => ../testhelpers
