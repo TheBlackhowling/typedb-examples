@@ -1,0 +1,126 @@
+name: Test Examples and Integration Tests with Typedb Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      typedb_version:
+        description: 'Typedb version/tag/branch to test against (e.g., v1.0.0, main, or commit SHA)'
+        required: true
+        type: string
+        default: 'main'
+      test_type:
+        description: 'What to test'
+        required: true
+        type: choice
+        options:
+          - examples
+          - integration_tests
+          - both
+        default: 'both'
+      database:
+        description: 'Database to test (leave empty for all)'
+        required: false
+        type: choice
+        options:
+          - postgresql
+          - mysql
+          - sqlite
+          - mssql
+          - oracle
+          - all
+        default: 'all'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout typedb-examples
+        uses: actions/checkout@v4
+        with:
+          path: typedb-examples
+      
+      - name: Checkout typedb
+        uses: actions/checkout@v4
+        with:
+          repository: TheBlackhowling/typedb
+          ref: ${{ inputs.typedb_version }}
+          path: typedb
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.12'  # Minimum version, can be overridden via inputs if needed
+      
+      - name: Display typedb version info
+        run: |
+          cd typedb
+          echo "Typedb commit: $(git rev-parse HEAD)"
+          echo "Typedb branch/tag: $(git describe --tags --exact-match 2>/dev/null || git branch --show-current || echo 'detached HEAD')"
+      
+      - name: Create go.work workspace file
+        working-directory: typedb-examples
+        run: |
+          echo "Testing against typedb version: ${{ inputs.typedb_version }}"
+          # Remove any existing go.work file to ensure clean state
+          rm -f go.work
+          # Create go.work file that includes all example/integration test modules
+          # Use replace directive instead of including ../typedb in use list to avoid
+          # conflicts with typedb's own examples (which have same module paths)
+          cat > go.work << 'EOF'
+          go 1.24.0
+          
+          use (
+          	./examples/postgresql
+          	./examples/mysql
+          	./examples/sqlite
+          	./examples/mssql
+          	./examples/oracle
+          	./examples/seed
+          	./integration_tests/postgresql
+          	./integration_tests/mysql
+          	./integration_tests/sqlite
+          	./integration_tests/mssql
+          	./integration_tests/oracle
+          )
+          
+          replace github.com/TheBlackHowling/typedb => ../typedb
+          EOF
+      
+      - name: Download dependencies for examples
+        if: inputs.test_type == 'examples' || inputs.test_type == 'both'
+        working-directory: typedb-examples
+        run: |
+          # Download dependencies for all example modules
+          for dir in examples/*/; do
+            if [ -f "$dir/go.mod" ]; then
+              echo "Downloading dependencies for $dir"
+              (cd "$dir" && go mod download) || true
+            fi
+          done
+          # Download dependencies for seed module
+          if [ -f "examples/seed/go.mod" ]; then
+            (cd examples/seed && go mod download) || true
+          fi
+      
+      - name: Download dependencies for integration tests
+        if: inputs.test_type == 'integration_tests' || inputs.test_type == 'both'
+        working-directory: typedb-examples
+        run: |
+          # Download dependencies for all integration test modules
+          for dir in integration_tests/*/; do
+            if [ -f "$dir/go.mod" ]; then
+              echo "Downloading dependencies for $dir"
+              (cd "$dir" && go mod download) || true
+            fi
+          done
+      
+      - name: Summary
+        run: |
+          echo "## Test Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "- Typedb Version: ${{ inputs.typedb_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Test Type: ${{ inputs.test_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Database: ${{ inputs.database }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Note: This workflow checks out the specified typedb version and updates go.mod replace directives." >> $GITHUB_STEP_SUMMARY
+          echo "You can now run examples or integration tests manually, or use the individual workflow files." >> $GITHUB_STEP_SUMMARY

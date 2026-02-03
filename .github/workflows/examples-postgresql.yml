@@ -1,0 +1,111 @@
+name: Examples - PostgreSQL
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      - 'examples/postgresql/**'
+      - '.github/workflows/examples-postgresql.yml'
+  workflow_dispatch: # Manual trigger also available
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: typedb_examples
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+      - name: Checkout typedb-examples
+        uses: actions/checkout@v4
+        with:
+          path: typedb-examples
+      
+      - name: Checkout typedb
+        uses: actions/checkout@v4
+        with:
+          repository: TheBlackhowling/typedb
+          path: typedb
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache-dependency-path: typedb-examples/examples/postgresql/go.sum
+      
+      - name: Create go.work workspace file
+        working-directory: typedb-examples
+        run: |
+          # Remove any existing go.work file to ensure clean state
+          rm -f go.work
+          # Create go.work file that includes all example/integration test modules
+          # Use replace directive instead of including ../typedb in use list to avoid
+          # conflicts with typedb's own examples (which have same module paths)
+          cat > go.work << 'EOF'
+          go 1.24.0
+          
+          use (
+          	./examples/postgresql
+          	./examples/mysql
+          	./examples/sqlite
+          	./examples/mssql
+          	./examples/oracle
+          	./examples/seed
+          	./integration_tests/postgresql
+          	./integration_tests/mysql
+          	./integration_tests/sqlite
+          	./integration_tests/mssql
+          	./integration_tests/oracle
+          )
+          
+          replace github.com/TheBlackHowling/typedb => ../typedb
+          EOF
+          # Verify the file was created correctly
+          cat go.work
+          echo "--- Verifying go.work version ---"
+          grep "^go " go.work || echo "ERROR: go.work version line not found"
+      
+      - name: Download dependencies
+        working-directory: typedb-examples/examples/postgresql
+        run: go mod download
+      
+      - name: Install PostgreSQL driver
+        working-directory: typedb-examples/examples/postgresql
+        run: go get github.com/lib/pq
+      
+      - name: Install golang-migrate
+        run: |
+          curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz | tar xvz
+          sudo mv migrate /usr/local/bin/migrate
+      
+      - name: Run migrations
+        working-directory: typedb-examples
+        env:
+          POSTGRES_URL: "postgres://user:password@localhost:5432/typedb_examples?sslmode=disable"
+        run: |
+          cd examples/postgresql
+          migrate -path migrations -database "$POSTGRES_URL" up
+      
+      - name: Run PostgreSQL examples
+        working-directory: typedb-examples
+        env:
+          POSTGRES_DSN: "postgres://user:password@localhost:5432/typedb_examples?sslmode=disable"
+        run: |
+          cd examples/postgresql
+          go mod tidy
+          go run example.go examples_query.go examples_load.go examples_insert.go examples_update.go examples_transaction.go examples_raw.go models.go

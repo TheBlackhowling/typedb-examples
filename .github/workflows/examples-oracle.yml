@@ -1,0 +1,118 @@
+name: Examples - Oracle
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      - 'examples/oracle/**'
+      - '.github/workflows/examples-oracle.yml'
+  workflow_dispatch: # Manual trigger also available
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.23.12', '1.24', '1.25']
+    
+    steps:
+      - name: Checkout typedb-examples
+        uses: actions/checkout@v4
+        with:
+          path: typedb-examples
+      
+      - name: Checkout typedb
+        uses: actions/checkout@v4
+        with:
+          repository: TheBlackhowling/typedb
+          path: typedb
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache-dependency-path: typedb-examples/examples/oracle/go.sum
+      
+      - name: Update go.mod replace directives
+        working-directory: typedb-examples
+        run: |
+          # Update replace directives in all go.mod files to point to checked-out typedb repo
+          # From examples/*/ and integration_tests/*/, typedb is at ../../../typedb
+          find examples -name go.mod -type f ! -path "examples/seed/*" -exec sed -i 's|replace github.com/TheBlackHowling/typedb => \.\./\.\.\(/\|\$\)|replace github.com/TheBlackHowling/typedb => ../../../typedb|g' {} \;
+          find examples/seed -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => \.\./\.\.\(/\|\$\)|replace github.com/TheBlackHowling/typedb => ../../typedb|g' {} \;
+          find integration_tests -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => \.\./\.\.\(/\|\$\)|replace github.com/TheBlackHowling/typedb => ../../../typedb|g' {} \;
+      
+      - name: Download dependencies
+        working-directory: typedb-examples/examples/oracle
+        run: go mod download
+      
+      - name: Install Oracle driver
+        working-directory: typedb-examples/examples/oracle
+        run: go get github.com/sijms/go-ora/v2
+      
+      - name: Try to pull Oracle image without authentication
+        id: try_oracle_pull
+        continue-on-error: true
+        run: |
+          docker pull container-registry.oracle.com/database/free:latest || exit 1
+          echo "oracle_available=true" >> $GITHUB_OUTPUT
+      
+      - name: Check Oracle credentials (if pull failed)
+        id: check_oracle
+        if: steps.try_oracle_pull.outcome == 'failure'
+        run: |
+          if [ -z "${{ secrets.ORACLE_USERNAME }}" ] || [ -z "${{ secrets.ORACLE_PASSWORD }}" ]; then
+            echo "oracle_available=false" >> $GITHUB_OUTPUT
+            echo "Oracle image pull failed and credentials not configured. Skipping Oracle tests."
+            echo "To enable Oracle tests, add ORACLE_USERNAME and ORACLE_PASSWORD as GitHub secrets."
+            echo "Oracle Database Free is free for development and testing purposes."
+            echo "Sign up at https://container-registry.oracle.com/"
+          else
+            echo "oracle_available=true" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Login to Oracle Container Registry (if pull failed)
+        if: steps.try_oracle_pull.outcome == 'failure' && steps.check_oracle.outputs.oracle_available == 'true'
+        run: |
+          echo "${{ secrets.ORACLE_PASSWORD }}" | docker login container-registry.oracle.com -u "${{ secrets.ORACLE_USERNAME }}" --password-stdin || true
+      
+      - name: Start Oracle database
+        if: steps.try_oracle_pull.outputs.oracle_available == 'true' || steps.check_oracle.outputs.oracle_available == 'true'
+        working-directory: typedb-examples
+        run: |
+          cd examples
+          docker compose up -d oracle
+          echo "Waiting for Oracle to be ready..."
+          timeout 300 bash -c 'until docker compose exec -T oracle sqlplus -S sys/password@localhost:1521/FREEPDB1 as sysdba <<< "SELECT 1 FROM DUAL;" &>/dev/null; do sleep 5; done' || exit 1
+      
+      - name: Run Oracle migrations
+        if: steps.try_oracle_pull.outputs.oracle_available == 'true' || steps.check_oracle.outputs.oracle_available == 'true'
+        working-directory: typedb-examples
+        run: |
+          cd examples
+          docker compose run --rm migrate-oracle
+      
+      - name: Run Oracle examples
+        if: steps.try_oracle_pull.outputs.oracle_available == 'true' || steps.check_oracle.outputs.oracle_available == 'true'
+        working-directory: typedb-examples/examples/oracle
+        env:
+          ORACLE_DSN: "oracle://typedb:password@localhost:1521/FREEPDB1"
+        run: |
+          go mod tidy
+          go run example.go migrations_helper.go examples_query.go examples_load.go examples_insert.go examples_update.go examples_transaction.go examples_raw.go models.go
+      
+      - name: Cleanup Oracle container
+        if: always() && (steps.try_oracle_pull.outputs.oracle_available == 'true' || steps.check_oracle.outputs.oracle_available == 'true')
+        working-directory: typedb-examples
+        run: |
+          cd examples
+          docker compose down -v oracle || true
+      
+      - name: Skip Oracle tests (no credentials)
+        if: steps.try_oracle_pull.outcome == 'failure' && steps.check_oracle.outputs.oracle_available == 'false'
+        run: |
+          echo "Oracle tests skipped - credentials not configured"
+          echo "This is not a failure. Oracle tests are optional."

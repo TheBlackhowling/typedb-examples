@@ -1,0 +1,143 @@
+name: Examples - SQLite
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      - 'examples/sqlite/**'
+      - '.github/workflows/examples-sqlite.yml'
+  workflow_dispatch: # Manual trigger also available
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.23.12', '1.24', '1.25']
+    
+    steps:
+      - name: Checkout typedb-examples
+        uses: actions/checkout@v4
+        with:
+          path: typedb-examples
+      
+      - name: Checkout typedb
+        uses: actions/checkout@v4
+        with:
+          repository: TheBlackhowling/typedb
+          path: typedb
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache-dependency-path: typedb-examples/examples/sqlite/go.sum
+      
+      - name: Create go.work workspace file
+        working-directory: typedb-examples
+        run: |
+          # Remove any existing go.work file to ensure clean state
+          rm -f go.work
+          # Create go.work file that includes all example/integration test modules
+          # Use replace directive instead of including ../typedb in use list to avoid
+          # conflicts with typedb's own examples (which have same module paths)
+          cat > go.work << 'EOF'
+          go 1.24.0
+          
+          use (
+          	./examples/postgresql
+          	./examples/mysql
+          	./examples/sqlite
+          	./examples/mssql
+          	./examples/oracle
+          	./examples/seed
+          	./integration_tests/postgresql
+          	./integration_tests/mysql
+          	./integration_tests/sqlite
+          	./integration_tests/mssql
+          	./integration_tests/oracle
+          )
+          
+          replace github.com/TheBlackHowling/typedb => ../typedb
+          EOF
+      
+      - name: Install SQLite development libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsqlite3-dev gcc
+      
+      - name: Install SQLite driver and migration dependencies
+        working-directory: typedb-examples/examples/sqlite
+        env:
+          CGO_ENABLED: 1
+        run: |
+          # Set CGO_ENABLED globally for this step
+          export CGO_ENABLED=1
+          # Download and build dependencies with CGO enabled
+          go mod download || true
+          go get github.com/mattn/go-sqlite3
+          go get github.com/golang-migrate/migrate/v4
+          go get github.com/golang-migrate/migrate/v4/database/sqlite3
+          go get github.com/golang-migrate/migrate/v4/source/file
+          go mod tidy
+          
+          # Build a test program to verify the driver compiles and registers with CGO
+          # This ensures the driver's init() function runs and registers "sqlite3"
+          cat > /tmp/test_sqlite.go << 'EOF'
+          package main
+          import (
+              "database/sql"
+              _ "github.com/mattn/go-sqlite3"
+          )
+          func main() {
+              // Verify driver is registered
+              drivers := sql.Drivers()
+              found := false
+              for _, d := range drivers {
+                  if d == "sqlite3" {
+                      found = true
+                      break
+                  }
+              }
+              if !found {
+                  panic("sqlite3 driver not registered")
+              }
+              // Try to open a connection to verify it works
+              db, err := sql.Open("sqlite3", ":memory:")
+              if err != nil {
+                  panic(err)
+              }
+              db.Close()
+          }
+          EOF
+          go build -o /tmp/test_sqlite /tmp/test_sqlite.go || (echo "Failed to build sqlite3 driver test" && exit 1)
+          /tmp/test_sqlite || (echo "sqlite3 driver test failed" && exit 1)
+          rm -f /tmp/test_sqlite /tmp/test_sqlite.go
+      
+      - name: Run SQLite examples
+        working-directory: typedb-examples
+        env:
+          CGO_ENABLED: 1
+          SQLITE_DSN: "typedb_examples_test.db"
+        run: |
+          cd examples/sqlite
+          export CGO_ENABLED=1
+          # Verify CGO is enabled
+          if [ "$(go env CGO_ENABLED)" != "1" ]; then
+            echo "ERROR: CGO_ENABLED is not set to 1"
+            go env CGO_ENABLED
+            exit 1
+          fi
+          go mod tidy
+          # Build the package with CGO enabled to ensure sqlite3 driver is compiled correctly
+          go build -o sqlite_examples .
+          ./sqlite_examples
+      
+      - name: Cleanup test database
+        if: always()
+        working-directory: typedb-examples
+        run: |
+          rm -f examples/sqlite/*.db examples/sqlite/sqlite_examples
