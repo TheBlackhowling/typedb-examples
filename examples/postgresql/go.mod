@@ -3,7 +3,7 @@ module github.com/TheBlackHowling/typedb/examples/postgresql
 go 1.23
 
 require (
-	github.com/TheBlackHowling/typedb v1.0.11
+	github.com/TheBlackHowling/typedb v1.0.12
 	github.com/TheBlackHowling/typedb/examples/seed v0.0.0
 	github.com/lib/pq v1.10.9
 )
