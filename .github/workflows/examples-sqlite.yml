@@ -36,33 +36,14 @@ jobs:
           go-version: ${{ matrix.go-version }}
           cache-dependency-path: typedb-examples/examples/sqlite/go.sum
       
-      - name: Create go.work workspace file
+      - name: Update go.mod replace directives
         working-directory: typedb-examples
         run: |
-          # Remove any existing go.work file to ensure clean state
-          rm -f go.work
-          # Create go.work file that includes all example/integration test modules
-          # Use replace directive instead of including ../typedb in use list to avoid
-          # conflicts with typedb's own examples (which have same module paths)
-          cat > go.work << 'EOF'
-          go 1.24.0
-          
-          use (
-          	./examples/postgresql
-          	./examples/mysql
-          	./examples/sqlite
-          	./examples/mssql
-          	./examples/oracle
-          	./examples/seed
-          	./integration_tests/postgresql
-          	./integration_tests/mysql
-          	./integration_tests/sqlite
-          	./integration_tests/mssql
-          	./integration_tests/oracle
-          )
-          
-          replace github.com/TheBlackHowling/typedb => ../typedb
-          EOF
+          # Update replace directives in all go.mod files to point to checked-out typedb repo
+          # From examples/*/ and integration_tests/*/, typedb is at ../../../typedb
+          find examples -name go.mod -type f ! -path "examples/seed/*" -exec sed -i 's|replace github.com/TheBlackHowling/typedb => \.\./\.\.\(/\|\$\)|replace github.com/TheBlackHowling/typedb => ../../../typedb|g' {} \;
+          find examples/seed -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => \.\./\.\.\(/\|\$\)|replace github.com/TheBlackHowling/typedb => ../../typedb|g' {} \;
+          find integration_tests -name go.mod -exec sed -i 's|replace github.com/TheBlackHowling/typedb => \.\./\.\.\(/\|\$\)|replace github.com/TheBlackHowling/typedb => ../../../typedb|g' {} \;
       
       - name: Install SQLite development libraries
         run: |

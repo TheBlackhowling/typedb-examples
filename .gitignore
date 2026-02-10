@@ -40,3 +40,27 @@ pr_body*.md
 # .env.local
 # .env.*.local
 
+# Compiled binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# SQLite database files
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Go workspace (local dev; CI uses replace directives)
+go.work
+go.work.sum
+
+# Go test coverage files
+coverage.out
+coverage.html
+coverage
+coverage/
+coverage_*
+*.coverprofile

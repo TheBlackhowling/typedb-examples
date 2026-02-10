@@ -296,3 +296,105 @@ func TestSQLite_Update_NonPartialUpdate(t *testing.T) {
 		t.Fatalf("Failed to restore original post: %v", err)
 	}
 }
+
+// TestSQLite_Update_PartialUpdate_ZeroValues verifies that partial update correctly writes
+// zero values (false, 0, "", 0.0) for value types instead of NULL.
+func TestSQLite_Update_PartialUpdate_ZeroValues(t *testing.T) {
+	db := setupTestDB(t)
+	defer closeDB(t, db)
+	defer os.Remove(getTestDSN())
+
+	ctx := context.Background()
+
+	// zero_value_test row 1 is seeded with: str_col='non-empty', bool_col=true, int_col=42, float_col=3.14
+	zv := &ZeroValueTest{ID: 1}
+	if err := typedb.Load(ctx, db, zv); err != nil {
+		t.Fatalf("Failed to load ZeroValueTest: %v", err)
+	}
+
+	origStr, origBool, origInt, origFloat := zv.StrCol, zv.BoolCol, zv.IntCol, zv.FloatCol
+	t.Cleanup(func() {
+		restore := &ZeroValueTest{ID: 1}
+		if err := typedb.Load(ctx, db, restore); err != nil {
+			return
+		}
+		restore.StrCol, restore.BoolCol, restore.IntCol, restore.FloatCol = origStr, origBool, origInt, origFloat
+		typedb.Update(ctx, db, restore)
+	})
+
+	// Test 1: string -> ""
+	{
+		zv := &ZeroValueTest{ID: 1}
+		if err := typedb.Load(ctx, db, zv); err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+		zv.StrCol = ""
+		if err := typedb.Update(ctx, db, zv); err != nil {
+			t.Fatalf("Update StrCol to empty string: %v", err)
+		}
+		loaded := &ZeroValueTest{ID: 1}
+		if err := typedb.Load(ctx, db, loaded); err != nil {
+			t.Fatalf("Load after update: %v", err)
+		}
+		if loaded.StrCol != "" {
+			t.Errorf("StrCol: expected empty string, got %q", loaded.StrCol)
+		}
+	}
+
+	// Test 2: bool -> false
+	{
+		zv := &ZeroValueTest{ID: 1}
+		if err := typedb.Load(ctx, db, zv); err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+		zv.BoolCol = false
+		if err := typedb.Update(ctx, db, zv); err != nil {
+			t.Fatalf("Update BoolCol to false: %v", err)
+		}
+		loaded := &ZeroValueTest{ID: 1}
+		if err := typedb.Load(ctx, db, loaded); err != nil {
+			t.Fatalf("Load after update: %v", err)
+		}
+		if loaded.BoolCol != false {
+			t.Errorf("BoolCol: expected false, got %v", loaded.BoolCol)
+		}
+	}
+
+	// Test 3: int -> 0
+	{
+		zv := &ZeroValueTest{ID: 1}
+		if err := typedb.Load(ctx, db, zv); err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+		zv.IntCol = 0
+		if err := typedb.Update(ctx, db, zv); err != nil {
+			t.Fatalf("Update IntCol to 0: %v", err)
+		}
+		loaded := &ZeroValueTest{ID: 1}
+		if err := typedb.Load(ctx, db, loaded); err != nil {
+			t.Fatalf("Load after update: %v", err)
+		}
+		if loaded.IntCol != 0 {
+			t.Errorf("IntCol: expected 0, got %d", loaded.IntCol)
+		}
+	}
+
+	// Test 4: float64 -> 0.0
+	{
+		zv := &ZeroValueTest{ID: 1}
+		if err := typedb.Load(ctx, db, zv); err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+		zv.FloatCol = 0.0
+		if err := typedb.Update(ctx, db, zv); err != nil {
+			t.Fatalf("Update FloatCol to 0.0: %v", err)
+		}
+		loaded := &ZeroValueTest{ID: 1}
+		if err := typedb.Load(ctx, db, loaded); err != nil {
+			t.Fatalf("Load after update: %v", err)
+		}
+		if loaded.FloatCol != 0.0 {
+			t.Errorf("FloatCol: expected 0.0, got %g", loaded.FloatCol)
+		}
+	}
+}
