@@ -147,3 +147,26 @@ func (t *TypeExample) QueryByID() string {
 func init() {
 	typedb.RegisterModel[*TypeExample]()
 }
+
+// ZeroValueTest is for testing partial update zero-value behavior (string, bool, int, float)
+type ZeroValueTest struct {
+	typedb.Model
+	ID       int     `db:"id" load:"primary"`
+	StrCol   string  `db:"str_col"`
+	BoolCol  bool    `db:"bool_col"`
+	IntCol   int     `db:"int_col"`
+	FloatCol float64 `db:"float_col"`
+}
+
+func (z *ZeroValueTest) TableName() string {
+	return "zero_value_test"
+}
+
+func (z *ZeroValueTest) QueryByID() string {
+	return "SELECT id, str_col, bool_col, int_col, float_col FROM zero_value_test WHERE id = ?"
+}
+
+func init() {
+	typedb.RegisterModel[*ZeroValueTest]()
+	typedb.RegisterModelWithOptions[*ZeroValueTest](typedb.ModelOptions{PartialUpdate: true})
+}
